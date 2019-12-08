@@ -23,15 +23,16 @@ class game():
         elif(difficulty == "16x16"):
             self.board_w = 16
             self.board_h = 16
-            
+        
+        self.result = None
         self.create_board()
     
     def create_board(self):
         """ 
             Create a board object. This is a 1d array representing all the elements on the board
-            -   - is an unknown space (init of all spaces)
-            x   - is a known bomb
-            0-8 - number space
+            -1   - is an unknown space (init of all spaces)
+            9    - is a known bomb
+            0-8  - number space
         """
         self.board = [ 0 for _ in range(self.board_w * self.board_h)]
     
@@ -81,9 +82,7 @@ class game():
         
         for num, tile in enumerate(tiles):
             if(num == 0): # opencv can't detect the 0 so detect the unknown
-                num = '-'
-            if(num == 9):
-                num = 'x'
+                num = -1
 
             matches = imagesearch_all(tiles_loc + tile, img_gray, self.scale, .85)
             
@@ -116,7 +115,7 @@ class game():
     def find_game_scale(self):
         if(self.difficulty == "9x9"):
             image = tiles_loc + "beginner.png"
-        if(self.difficulty == "16x16"):
+        elif(self.difficulty == "16x16"):
             image = tiles_loc + "intermediate.png"
         else:
             print("find_game_scale: board image not defined")
@@ -160,15 +159,38 @@ class game():
         x, y = self.board_to_screen(bX, bY)
         gui.click(x=x, y=y, button='right')
         
+    def get_board_size(self):
+        return self.board_h * self.board_w
+        
     def run(self):
         input("continue...")
-        self.click(0,0)
-        self.click(15,15)
+        #self.click(0,0)
+        #self.click(15,15)
         self.update_board()
         self.print_board()
+        self.reset()
+    
+    def reset(self):
+        im = gui.screenshot()
+        img_rgb = np.array(im)
+        img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
+        
+        x, y = imagesearch(tiles_loc + "reset.png", img_gray, self.scale, precision=.7)
+        if x != -1 and y != 1: 
+            gui.click(x+1, y+1)
+    
+        x, y = imagesearch(tiles_loc + "reset_lost.png", img_gray, self.scale, precision=.7)
+        if x != -1 and y != 1: 
+            gui.click(x+1, y+1)
+            
+        x, y = imagesearch(tiles_loc + "reset_won.png", img_gray, self.scale, precision=.7)
+        if x != -1 and y != 1: 
+            gui.click(x+1, y+1)
+            
+        self.result = None
     
 if __name__ == "__main__":
-    g = game("16x16")
+    g = game("9x9")
     g.find_game()
     g.run()
     
