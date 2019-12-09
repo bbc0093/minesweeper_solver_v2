@@ -58,17 +58,17 @@ class game():
         img_rgb = np.array(im)
         img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
         
-        x, y = imagesearch(tiles_loc + "reset.png", img_gray, self.scale)
+        x, y = imagesearch(tiles_loc + "reset.png", img_gray, self.scale, precision=.7)
         if x != -1 and y != 1: 
             self.result = None
             return self.result
     
-        x, y = imagesearch(tiles_loc + "reset_lost.png", img_gray, self.scale)
+        x, y = imagesearch(tiles_loc + "reset_lost.png", img_gray, self.scale, precision=.7)
         if x != -1 and y != 1: 
             self.result = "lost"
             return self.result
             
-        x, y = imagesearch(tiles_loc + "reset_won.png", img_gray, self.scale)
+        x, y = imagesearch(tiles_loc + "reset_won.png", img_gray, self.scale, precision=.7)
         if x != -1 and y != 1: 
             self.result = "won"
             return self.result
@@ -164,13 +164,17 @@ class game():
         
     def run(self):
         input("continue...")
-        #self.click(0,0)
+        self.click(0,0)
         #self.click(15,15)
         self.update_board()
         self.print_board()
         self.reset()
     
+    def is_valid_loc(self, x, y):
+        return self.board[x + y * self.board_w] == -1
+    
     def reset(self):
+        print("Reset")
         im = gui.screenshot()
         img_rgb = np.array(im)
         img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
