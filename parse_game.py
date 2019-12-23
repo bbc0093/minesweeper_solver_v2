@@ -95,8 +95,16 @@ class game():
                     continue
                 self.board[bX + self.board_w * bY] = num
     
+        self.check_victory()
         
-        print(self.check_victory())
+        
+    def num_known(self):
+        num = 0
+        for item in self.board:
+            if item != -1 and item != 9:
+                num += 1
+        
+        return num
     
     def print_board(self):
         for row in range(self.board_h):
@@ -152,7 +160,6 @@ class game():
     
     def click(self, bX, bY):
         x, y = self.board_to_screen(bX, bY)
-        print(x, y)
         gui.click(x=x, y=y)
         
     def right_click(self, bX, bY):

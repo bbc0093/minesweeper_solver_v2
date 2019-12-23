@@ -13,6 +13,8 @@ from rl.agents.sarsa import SARSAAgent
 from rl.policy import EpsGreedyQPolicy
 from rl.memory import SequentialMemory
 
+import datetime
+
 class minesweep(gym.Env):
     """this is an interface to Microsoft's minesweeper game
     
@@ -31,19 +33,21 @@ class minesweep(gym.Env):
         self.game = game("9x9")
         self.game.find_game()
         self.game.update_board()
-        self.actions = 0
         
         self.reward_range = (-1, (self.game.board_w-1)*(self.game.board_h-1), np.int64)
         
         # One action per board position * R/L: Click
-        self.action_space = spaces.Discrete(self.game.board_w * self.game.board_h * 2)
+        # self.action_space = spaces.Discrete(self.game.board_w * self.game.board_h * 2)
+        # only left clicks for now
+        self.action_space = spaces.Discrete(self.game.board_w * self.game.board_h)
         
         #-1 is unknown 0-8 are num values, 9 is known bomb
         self.observation_space = spaces.Box(-1, 9, (self.game.board_w, self.game.board_h))   #X, Y, val
     
     def _take_action(self, action):
-        rl = int(action % 2)
-        action /= 2     
+        rl = action > (self.game.board_w * self.game.board_h)
+        if(rl):
+            action -= self.game.board_w * self.game.board_h     
         
         x = int(action % self.game.board_w)
         action /= self.game.board_w
@@ -88,12 +92,11 @@ class minesweep(gym.Env):
         repeat = self._take_action(action)
         
         if(repeat):
-            return self.obs, 0, 0, {}
+            return self.obs, -1, 0, {}
         
         if(not self.game.result):
             done = 0
-            self.actions += 1
-            reward = self.actions
+            reward = self.game.num_known()
         elif(self.game.result == "won"):
             done = 1
             reward = (self.game.board_w-1)*(self.game.board_h-1)
@@ -102,7 +105,6 @@ class minesweep(gym.Env):
             reward = -1
             
         self.obs = self.gen_obs()
-        print(reward, done)
         return self.obs, reward, done, {}
     
     def render(self, mode):
@@ -110,7 +112,6 @@ class minesweep(gym.Env):
             self.game.print_board()
     
     def reset(self):
-        self.actions = 0
         self.game.reset()
         self.obs = self.gen_obs()
         return self.obs
@@ -132,7 +133,11 @@ if (__name__ == "__main__"):
     policy = EpsGreedyQPolicy()
     sars = SARSAAgent(model=model, nb_actions=nb_actions, nb_steps_warmup=100, policy=policy)
     sars.compile(Adam(lr=1e-3), metrics=['mae'])
-    sars.fit(env, nb_steps=5000, visualize=False, verbose=2)
+    sars.fit(env, nb_steps=50000, visualize=False, verbose=2)
+    cur_time = datetime.datetime.now()
+    filename = 'sarsa_minesweeper_weights_{}.h5f'.format(cur_time.strftime("%m-%d-%Y--%H-%M-%S"))
+    sars.save_weights(filename, overwrite=True)
+
     
     """EXAMPLE:
     model = Sequential()
