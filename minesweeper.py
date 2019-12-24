@@ -15,12 +15,12 @@ MOVE_LOST = 1
 MOVE_WON = 2
 MOVE_CONTINUE = 3
 
-MS_DEBUG = True
+MS_DEBUG = False
 
 class minesweeper():
     def __init__(self):
         self.is_first = True
-        self.recursive = False
+        self.recursive = 0
         self.chooseDifficultyLevel(BEGINNER)
         self.initialise()
         self.print_int_board()
@@ -179,7 +179,7 @@ class minesweeper():
             return MOVE_LOST
 
         if self.int_board[row][col] == 0:
-            self.recursive = True
+            self.recursive += 1
             
             for new_row in range(-1, 2):
                 for new_col in range(-1, 2):
@@ -187,7 +187,7 @@ class minesweeper():
                         continue
                     self.make_move(new_row+row, new_col+col)
                     
-            self.recursive = False
+            self.recursive -= 1
 
         if self.check_won():
             print("YOU WON!!")
@@ -197,21 +197,24 @@ class minesweeper():
 
 #wrapper to fit ML alg
 class game(minesweeper):
-    def __init__(self, input):
-        if input == "9x9":
+    def __init__(self, size):
+        print("Starting...")
+        if size == "9x9":
             minesweeper.__init__(self)
             
         self.board_w = self.side
         self.board_h = self.side
+        self.result = None
             
     def click(self, row, col):
+        print("Click: " + str(row) + ", " + str(col))
         last_result = self.make_move(row, col)
         if last_result == MOVE_WON:
             self.result = "won"
         elif last_result == MOVE_LOST:
             self.result = "lost"
         else:
-            self.result - None
+            self.result = None
 
     def right_click(self, row, col):
         print("Not implemented")
@@ -223,7 +226,6 @@ class game(minesweeper):
         self.board = []
         
         for row in range(self.side):
-            self.board = []
             for col in range(self.side):
                 if self.int_board[row][col] == "-":
                     self.board.append(-1)
@@ -233,12 +235,13 @@ class game(minesweeper):
                     self.board.append(self.int_board[row][col])
     
     def is_valid_loc(self, row, col):
-        return self.is_valid(row, col)
+        return self.is_valid(row, col) and not self.is_known(row, col)
     
     def get_board_size(self):
         return self.board_w * self.board_h
 
     def reset(self):
+        print("Reset")
         minesweeper.__init__(self)
         self.update_board()
     
@@ -246,7 +249,7 @@ class game(minesweeper):
         num = 0
         for row in range(self.side):
             for col in range(self.side):
-                if self.int_board[row][col] != "-":
+                if self.known_board[row][col] != "-":
                     num += 1
     
         return num

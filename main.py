@@ -3,7 +3,8 @@ import numpy as np
 import gym
 from gym import spaces
 
-from parse_game import game
+#from parse_game import game
+from minesweeper import game
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
@@ -34,12 +35,13 @@ class minesweep(gym.Env):
         self.game.find_game()
         self.game.update_board()
         
+        self.runs = 0
+        self.wins = 0
+        self.loses = 0
+        
         self.reward_range = (-1, (self.game.board_w-1)*(self.game.board_h-1), np.int64)
         
-        # One action per board position * R/L: Click
-        # self.action_space = spaces.Discrete(self.game.board_w * self.game.board_h * 2)
-        # only left clicks for now
-        self.action_space = spaces.Discrete(self.game.board_w * self.game.board_h)
+        self.action_space = spaces.Discrete(self.action_size())
         
         #-1 is unknown 0-8 are num values, 9 is known bomb
         self.observation_space = spaces.Box(-1, 9, (self.game.board_w, self.game.board_h))   #X, Y, val
@@ -59,9 +61,9 @@ class minesweep(gym.Env):
             return 1
 
         if(rl):
-            self.game.click(x, y)
-        else:
             self.game.right_click(x, y)
+        else:
+            self.game.click(x, y)
             
         self.game.update_board()
     
@@ -69,7 +71,10 @@ class minesweep(gym.Env):
         return self.game.board_w * self.game.board_h * 10
     
     def action_size(self):
-        return self.game.board_w * self.game.board_h * 2
+        # One action per board position * R/L: Click
+        # return self.game.board_w * self.game.board_h * 2
+        # only left clicks for now
+        return self.game.board_w * self.game.board_h 
     
     def gen_obs(self):
         x = np.empty(self.game.get_board_size())
@@ -98,9 +103,11 @@ class minesweep(gym.Env):
             done = 0
             reward = self.game.num_known()
         elif(self.game.result == "won"):
+            self.wins += 1
             done = 1
-            reward = (self.game.board_w-1)*(self.game.board_h-1)
+            reward = (self.game.board_w-1)*(self.game.board_h-1)*100
         elif(self.game.result == "lost"):
+            self.loses += 1
             done = 1
             reward = -1
             
@@ -112,13 +119,16 @@ class minesweep(gym.Env):
             self.game.print_board()
     
     def reset(self):
+        self.runs += 1
         self.game.reset()
         self.obs = self.gen_obs()
         return self.obs
+    
+    def record(self):
+        return "W: {}, L: {}, R: {}".format(self.wins, self.loses, self.runs)
 
 if (__name__ == "__main__"):
     env = minesweep()
-    
     
     model = Sequential()
     model.add(Flatten(input_shape=(1,) + env.observation_space.shape))
@@ -135,8 +145,9 @@ if (__name__ == "__main__"):
     sars.compile(Adam(lr=1e-3), metrics=['mae'])
     sars.fit(env, nb_steps=50000, visualize=False, verbose=2)
     cur_time = datetime.datetime.now()
-    filename = 'sarsa_minesweeper_weights_{}.h5f'.format(cur_time.strftime("%m-%d-%Y--%H-%M-%S"))
+    filename = 'weights/sarsa_minesweeper_weights_{}.h5f'.format(cur_time.strftime("%m-%d-%Y--%H-%M-%S"))
     sars.save_weights(filename, overwrite=True)
+    print(env.record())
 
     
     """EXAMPLE:
