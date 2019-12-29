@@ -122,7 +122,7 @@ class minesweeper():
             self.known_board.append(tmp_known_row)
         
     def place_mines(self):
-        random.seed()
+        random.seed(5)
         
         store = []
         
@@ -205,10 +205,15 @@ class game(minesweeper):
         self.board_w = self.side
         self.board_h = self.side
         self.result = None
+        self.clicks = 0
             
     def click(self, row, col):
         print("Click: " + str(row) + ", " + str(col))
         last_result = self.make_move(row, col)
+        
+        if last_result != MOVE_DUP:
+            self.clicks += 1
+        
         if last_result == MOVE_WON:
             self.result = "won"
         elif last_result == MOVE_LOST:
@@ -235,7 +240,15 @@ class game(minesweeper):
                     self.board.append(self.int_board[row][col])
     
     def is_valid_loc(self, row, col):
-        return self.is_valid(row, col) and not self.is_known(row, col)
+        if not self.is_valid(row, col):
+            print("Invalid:" + str(row) + ", " + str(col))
+            return 0
+        
+        if self.is_known(row, col):
+            print("Dup:" + str(row) + ", " + str(col))
+            return 0
+        return 1
+        #return self.is_valid(row, col) and not self.is_known(row, col)
     
     def get_board_size(self):
         return self.board_w * self.board_h
@@ -244,6 +257,10 @@ class game(minesweeper):
         print("Reset")
         minesweeper.__init__(self)
         self.update_board()
+        self.clicks = 0
+    
+    def num_clicks(self):
+        return self.clicks
     
     def num_known(self):
         num = 0

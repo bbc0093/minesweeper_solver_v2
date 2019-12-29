@@ -1,10 +1,10 @@
 import numpy as np
-
 import gym
 from gym import spaces
 
 #from parse_game import game
 from minesweeper import game
+from analyze_progress import plot_results
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
@@ -15,6 +15,7 @@ from rl.policy import EpsGreedyQPolicy
 from rl.memory import SequentialMemory
 
 import datetime
+import pickle
 
 class minesweep(gym.Env):
     """this is an interface to Microsoft's minesweeper game
@@ -39,7 +40,19 @@ class minesweep(gym.Env):
         self.wins = 0
         self.loses = 0
         
-        self.reward_range = (-1, (self.game.board_w-1)*(self.game.board_h-1), np.int64)
+        self.eps_dups = 0
+        self.dups = []
+        self.results = []
+        self.clicks = []
+        self.total_rewards = []
+        self.avg_rewards = []
+        self.eps_rewards = []
+        
+        self.win_reward = (self.game.board_w-1)*(self.game.board_h-1)*100
+        self.lose_reward = -(self.game.board_w-1)*(self.game.board_h-1)
+        self.rep_reward = -10
+        
+        self.reward_range = (min(self.rep_reward, self.lose_reward), self.win_reward, np.int64)
         
         self.action_space = spaces.Discrete(self.action_size())
         
@@ -97,21 +110,28 @@ class minesweep(gym.Env):
         repeat = self._take_action(action)
         
         if(repeat):
-            return self.obs, -1, 0, {}
-        
-        if(not self.game.result):
+            reward =  self.rep_reward
+            self.eps_dups += 1
             done = 0
-            reward = self.game.num_known()
+        elif(not self.game.result):
+            done = 0
+            reward = self.game.num_clicks()
         elif(self.game.result == "won"):
+            self.results.append("W")
             self.wins += 1
             done = 1
-            reward = (self.game.board_w-1)*(self.game.board_h-1)*100
+            reward = self.win_reward
         elif(self.game.result == "lost"):
             self.loses += 1
+            self.results.append("L")
             done = 1
-            reward = -1
+            reward = self.lose_reward
             
         self.obs = self.gen_obs()
+        
+        print(reward)
+        self.eps_rewards.append(reward)
+        
         return self.obs, reward, done, {}
     
     def render(self, mode):
@@ -119,6 +139,14 @@ class minesweep(gym.Env):
             self.game.print_board()
     
     def reset(self):
+        if len(self.eps_rewards) != 0:  #check for start reset and prevent dvd by 0 error
+            self.clicks.append(self.game.num_clicks())
+            self.dups.append(self.eps_dups)
+            self.eps_dups = 0
+            self.total_rewards.append(sum(self.eps_rewards))
+            self.avg_rewards.append(sum(self.eps_rewards)/len(self.eps_rewards))
+            self.eps_rewards = []
+        
         self.runs += 1
         self.game.reset()
         self.obs = self.gen_obs()
@@ -127,13 +155,25 @@ class minesweep(gym.Env):
     def record(self):
         return "W: {}, L: {}, R: {}".format(self.wins, self.loses, self.runs)
 
+    def plot_results(self):   
+        pickle.dump([self.total_rewards, self.avg_rewards, self.results, self.clicks, self.dups], open("data.p", "wb+"))
+        plot_results(self.total_rewards, self.avg_rewards, self.results, self.clicks, self.dups)
+        
+
+
 if (__name__ == "__main__"):
+    width = 255
+    depth = 100
+    
     env = minesweep()
     
     model = Sequential()
     model.add(Flatten(input_shape=(1,) + env.observation_space.shape))
-    model.add(Dense(255))
-    model.add(Activation('relu'))
+    
+    for _ in range(depth):
+        model.add(Dense(width))
+        model.add(Activation('relu'))
+
     nb_actions = env.action_size()
     model.add(Dense(nb_actions))
     model.add(Activation('linear'))
@@ -141,14 +181,17 @@ if (__name__ == "__main__"):
    
     
     policy = EpsGreedyQPolicy()
-    sars = SARSAAgent(model=model, nb_actions=nb_actions, nb_steps_warmup=100, policy=policy)
+    sars = SARSAAgent(model=model, nb_actions=nb_actions, nb_steps_warmup=1000, policy=policy, gamma = .999)
     sars.compile(Adam(lr=1e-3), metrics=['mae'])
-    sars.fit(env, nb_steps=50000, visualize=False, verbose=2)
+    sars.fit(env, nb_steps=500*1000, visualize=False, verbose=2)
+    
     cur_time = datetime.datetime.now()
     filename = 'weights/sarsa_minesweeper_weights_{}.h5f'.format(cur_time.strftime("%m-%d-%Y--%H-%M-%S"))
     sars.save_weights(filename, overwrite=True)
-    print(env.record())
 
+    
+    print(env.record())
+    env.plot_results()
     
     """EXAMPLE:
     model = Sequential()
